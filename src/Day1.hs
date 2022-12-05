@@ -1,4 +1,4 @@
-module Day1 (someFunc) where
+module Day1 (someFunc, toInt) where
 
 import Data.List
 
