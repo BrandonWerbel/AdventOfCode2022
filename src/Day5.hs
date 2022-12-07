@@ -26,7 +26,7 @@ applyInstruction stacks [n, from, to] =
   let
       (removed, updatedFrom) = splitAt n (stacks !! from)
       -- Append the removed characters to the stack at index `to`
-      updatedTo = (reverse removed) ++ (stacks!!to)
+      updatedTo = (removed) ++ (stacks!!to)
       zipped = zip [0..] stacks
       newStacks = map (\(i, x) ->
             if i == from then updatedFrom
