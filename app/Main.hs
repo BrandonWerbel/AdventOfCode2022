@@ -1,8 +1,8 @@
 module Main where
 
-import Day4 (someFunc)
+import Day5 (someFunc)
 
 main :: IO ()
 main = do
-  putStrLn ""
+  putStrLn "Starting"
   someFunc
