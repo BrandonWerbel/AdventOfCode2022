@@ -1,6 +1,6 @@
 module Main where
 
-import Day6 (someFunc)
+import Test (someFunc)
 
 main :: IO ()
 main = do
