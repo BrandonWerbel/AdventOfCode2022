@@ -29,6 +29,7 @@ library
         Day5
         Day6
         Day7
+        OtherDay7
         Test
 
     -- Modules included in this library but not exported.
