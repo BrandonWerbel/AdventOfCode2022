@@ -3,54 +3,60 @@ module Test (someFunc) where
 
 import Data.Tree
 import Data.List
-import Data.Maybe (fromMaybe)
 
-fileSystem :: Tree String
-fileSystem = Node "/" [
-        Node "a" [],
-        Node "b" [
-            Node "c" [],
-            Node "d" [
-                Node "e" []
-                ]
-            ]
-        ]
+printAscii :: Tree (Int, String) -> String
+printAscii tree = printAscii' 0 tree
 
--- | This function takes a Tree and a String identifier and returns a list of all
--- | subtrees rooted at nodes with the given identifier.
-findSubtrees :: Tree String -> String -> [Tree String]
-findSubtrees tree id =
-  case tree of
-    -- If the root of the tree has the given identifier, return the whole tree.
-    Node rootId _ | rootId == id -> [tree]
-    -- If the root of the tree doesn't have the given identifier, search its
-    -- children recursively.
-    Node _ children ->
-      -- The concatMap function takes a list and a function and applies the
-      -- function to each element of the list, concatenating the resulting lists.
-      concatMap (\child -> findSubtrees child id) children
+printAscii' :: Int -> Tree (Int, String) -> String
+printAscii' indent (Node (size, name) []) = 
+  "(" ++ show size ++ ", " ++ name ++ ")\n"
+printAscii' indent (Node (size, name) children) = 
+  "(" ++ show size ++ ", " ++ name ++ ")\n" ++
+  (concat $ map (\child -> (replicate indent ' ') ++ "|\n" ++ (replicate indent ' ') ++ "|- " ++ printAscii' (indent+3) child) children)
 
 
-getParent :: Tree String -> Tree String -> Tree String
-getParent parent child =
-  case parent of
-    -- If the parent node has the given child as one of its subtrees, return the
-    -- parent node. Otherwise, search the parent's children recursively for the
-    -- given child.
-    Node _ children ->
-      if child `elem` children
-        then parent
-        else fromMaybe parent (find (\c -> getParent c child /= parent) children)
+getChild :: Tree a -> [Int] -> Tree a
+getChild tree [] = tree
+getChild tree (p:path) = 
+    let next = (subForest tree)!!p
+    in getChild next path
+
+updateParent :: ([Int], Tree (Int, String)) -> Tree (Int, String) -> ([Int], Tree (Int, String))
+updateParent ([], newNode) tree = ([], newNode)
+updateParent (p:[], newNode) tree = 
+    let newTree = Node (rootLabel tree) (map (\c -> 
+            if rootLabel c == rootLabel newNode then 
+                newNode else c) (subForest tree))
+    in ([], newTree)
+updateParent ((p:path), newNode) tree =
+    let newPath = take (length (p:path) - 1) (p:path)
+        parent = getChild tree newPath
+        newParent = Node (rootLabel parent) (map (\c -> 
+            if rootLabel c == rootLabel newNode then 
+                newNode else c) (subForest parent))
+    in updateParent (newPath, newParent) tree
+
+addNode :: Tree (Int, String) -> [Int] -> (Int, String) -> Tree (Int, String)
+addNode tree path id =
+    let newNode = Node id []
+        parent = getChild tree path
+        newParent = Node (rootLabel parent) (newNode : (subForest parent))
+    in snd $ updateParent (path, newParent) tree
 
 
 someFunc :: IO ()
 someFunc = do
-    -- Find the first subtree rooted at a node with the identifier "d" in the
-    -- fileSystem tree.
-    let subtree = (head $ findSubtrees fileSystem "d")
+    let tree = Node (0, "1") [
+            Node (0, "2") [],
+            Node (0, "3") [
+                Node (0, "2") []]]
+    let path = []
+    let id = (1, "4")
 
-    -- Get the parent node of the subtree.
-    let parent = getParent fileSystem subtree
+    -- let parent = getChild tree path
+    -- let newParent = Node (rootLabel parent) ( child : (subForest parent))
+    -- let (newPath, newParentParent) = updateParent (path, newParent) tree
 
-    -- Convert the tree to a string and print it.
-    putStrLn $ drawTree parent
+    let newTree = addNode tree path id
+    
+    putStrLn $ printAscii newTree

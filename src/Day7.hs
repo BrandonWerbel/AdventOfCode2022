@@ -1,6 +1,7 @@
 module Day7 (someFunc) where
 
 import Data.Tree
+import Data.List
 import Data.Char
 
 printAscii :: Tree (Int, String) -> String
@@ -20,21 +21,33 @@ subAddedNode (Node rootId children) (Node name newChildren) =
     in if rootId == name && children == tail newChildren then newNode
         else Node rootId $ map (\c -> subAddedNode c newNode) children
 
+updateParent :: ([Int], Tree (Int, String)) -> Tree (Int, String) -> ([Int], Tree (Int, String))
+updateParent ([], newNode) tree = ([], newNode)
+updateParent (p:[], newNode) tree = 
+    let newTree = Node (rootLabel tree) (map (\c -> 
+            if rootLabel c == rootLabel newNode then 
+                newNode else c) (subForest tree))
+    in ([], newTree)
+updateParent ((p:path), newNode) tree =
+    let newPath = take (length (p:path) - 1) (p:path)
+        parent = getChild tree newPath
+        newParent = Node (rootLabel parent) (map (\c -> 
+            if rootLabel c == rootLabel newNode then 
+                newNode else c) (subForest parent))
+    in updateParent (newPath, newParent) tree
+
 addNode :: Tree (Int, String) -> [Int] -> (Int, String) -> Tree (Int, String)
 addNode tree path id =
-    let dir = getChild tree path
-        innerDir = Node id [] : subForest (dir)
-        newDir = Node (rootLabel dir) innerDir
-        newTree = subAddedNode tree newDir
-    in newTree
+    let newNode = Node id []
+        parent = getChild tree path
+        newParent = Node (rootLabel parent) (newNode : (subForest parent))
+    in snd $ updateParent (path, newParent) tree
 
 getChild :: Tree (Int, String) -> [Int] -> Tree (Int, String)
-getChild tree path =
-    if length path == 0 then tree
-    else if head path == -1 then getChild tree (tail path)
-    else
-        let next = (subForest (tree))!!(head path)
-        in getChild next (tail path)
+getChild tree [] = tree
+getChild tree (p:path) = 
+    let next = (subForest tree)!!p
+    in getChild next path
 
 findChildNum :: Tree (Int, String) -> String -> Int
 findChildNum tree name =
@@ -52,9 +65,14 @@ sumChildren (Node (value, name) children) =
     let childSum = if length children == 0 then value else sum (map (\c -> fst (rootLabel c)) children)
     in Node (childSum, name) (map sumChildren children)
 
-hasChildren :: Tree (Int, String) -> [(Int, String)]
-hasChildren (Node val []) = []
-hasChildren (Node (val, name) children) = filter (\(v, n) -> v <= 100000) $ (val, name) : (concatMap hasChildren children)
+hasChildren1 :: Tree (Int, String) -> [(Int, String)]
+hasChildren1 (Node val []) = []
+hasChildren1 (Node (val, name) children) = filter (\(v, n) -> v <= 100000) $ (val, name) : (concatMap hasChildren1 children)
+
+hasChildren2 :: Tree (Int, String) -> [(Int, String)]
+hasChildren2 (Node val []) = []
+hasChildren2 (Node (val, name) children) = (val, name) : (concatMap hasChildren2 children)
+
 
 userInput :: (Tree (Int, String), [Int]) -> String -> (Tree (Int, String), [Int])
 userInput (tree, path) cmd =
@@ -87,42 +105,20 @@ someFunc = do
     let useContents = tail contents
 
     let fileSystem = Node (0, "/") []
-    let path = [-1]
+    let path = []
 
-    let (fs, np) = userInput (fileSystem, path) "dir b"
+    let (newFileSystem, newPath) = userInputs (fileSystem, path) useContents 0
+    let addedFileSystem = sumAllChildren newFileSystem
+    putStrLn $ printAscii addedFileSystem
 
-    let (fs2, np2) = userInput (fs, np) "dir a" 
-
-    let (fs3, np3) = userInput (fs2, np2) "$ cd b" 
-
-    let (fs4, np4) = userInput (fs3, np3) "dir a"
-
-    let (fs5, np5) = userInput (fs4, np4) "$ cd a"
-
-    -- putStrLn $ printAscii fs5
-    -- putStrLn $ show np5
-
-    -- let newFileSystem = addNode fs5 np5 (1, "z")
-
-    let dir = getChild fs5 np5
-    let innerDir = Node (1, "z") [] : subForest (dir)
-    let newDir = Node (rootLabel dir) innerDir
-    let newTree = subAddedNode fs5 newDir
-    
-    putStrLn $ printAscii newTree
-
-    -- let (fs6, np6) = userInput (fs5, np5) "1 z"
-
-    
-
-    -- let (newFileSystem, newPath) = userInputs (fileSystem, path) useContents 0
-    -- let addedFileSystem = sumAllChildren newFileSystem
-    -- putStrLn $ printAscii addedFileSystem
-
-    -- let dirs = hasChildren addedFileSystem
-    -- putStrLn $ show dirs
-
+    -- let dirs = hasChildren1 addedFileSystem
     -- let total = sum $ map fst dirs
-    -- print total
 
-    -- print $ length (flatten addedFileSystem) - 1
+    -- part 2
+    let total = sum $ map fst (flatten newFileSystem)
+    let unused = 70000000 - total
+    let needToDelete = 30000000 - unused 
+    
+    let filteredSortedDirs = filter (\d -> fst d >= needToDelete) (sortOn fst $ hasChildren2 addedFileSystem)
+
+    print $ head filteredSortedDirs
