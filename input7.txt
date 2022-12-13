@@ -1,5 +1,3 @@
-$ cd /
-$ ls
 115454 dwdllt
 dir jmdf
 dir jrgzmphz
