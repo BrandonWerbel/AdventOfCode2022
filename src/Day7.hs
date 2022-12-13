@@ -6,7 +6,6 @@ import Data.Char
 printAscii :: Tree (Int, String) -> String
 printAscii tree = printAscii' 0 tree
 
-
 printAscii' :: Int -> Tree (Int, String) -> String
 printAscii' indent (Node (size, name) []) = 
   "(" ++ show size ++ ", " ++ name ++ ")\n"
@@ -50,9 +49,7 @@ sumAllChildren tree =
 
 sumChildren :: Tree (Int, String) -> Tree (Int, String)
 sumChildren (Node (value, name) children) =
-    -- First, we sum up the children of the current node.
     let childSum = if length children == 0 then value else sum (map (\c -> fst (rootLabel c)) children)
-    -- Then, we recursively sum the children of the current node's children.
     in Node (childSum, name) (map sumChildren children)
 
 hasChildren :: Tree (Int, String) -> [(Int, String)]
@@ -87,20 +84,45 @@ userInputs (fileSystem, path) cmds n =
 someFunc :: IO ()
 someFunc = do
     contents <- lines <$> readFile "input7.txt"
-
-    let useContents = (tail contents)
+    let useContents = tail contents
 
     let fileSystem = Node (0, "/") []
     let path = [-1]
 
-    let (newFileSystem, newPath) = userInputs (fileSystem, path) useContents 0
-    -- putStrLn $ printAscii newFileSystem
+    let (fs, np) = userInput (fileSystem, path) "dir b"
 
-    let addedFileSystem = sumAllChildren newFileSystem
-    putStrLn $ printAscii addedFileSystem
+    let (fs2, np2) = userInput (fs, np) "dir a" 
 
-    let dirs = hasChildren addedFileSystem
-    putStrLn $ show dirs
+    let (fs3, np3) = userInput (fs2, np2) "$ cd b" 
 
-    let total = sum $ map fst dirs
-    print total
+    let (fs4, np4) = userInput (fs3, np3) "dir a"
+
+    let (fs5, np5) = userInput (fs4, np4) "$ cd a"
+
+    -- putStrLn $ printAscii fs5
+    -- putStrLn $ show np5
+
+    -- let newFileSystem = addNode fs5 np5 (1, "z")
+
+    let dir = getChild fs5 np5
+    let innerDir = Node (1, "z") [] : subForest (dir)
+    let newDir = Node (rootLabel dir) innerDir
+    let newTree = subAddedNode fs5 newDir
+    
+    putStrLn $ printAscii newTree
+
+    -- let (fs6, np6) = userInput (fs5, np5) "1 z"
+
+    
+
+    -- let (newFileSystem, newPath) = userInputs (fileSystem, path) useContents 0
+    -- let addedFileSystem = sumAllChildren newFileSystem
+    -- putStrLn $ printAscii addedFileSystem
+
+    -- let dirs = hasChildren addedFileSystem
+    -- putStrLn $ show dirs
+
+    -- let total = sum $ map fst dirs
+    -- print total
+
+    -- print $ length (flatten addedFileSystem) - 1
