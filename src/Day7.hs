@@ -1,105 +1,124 @@
 module Day7 (someFunc) where
 
-    -- import Control.Monad
-    -- import Data.List
+import Data.Tree
+import Data.List
+import Data.Char
+
+printAscii :: Tree (Int, String) -> String
+printAscii tree = printAscii' 0 tree
+
+printAscii' :: Int -> Tree (Int, String) -> String
+printAscii' indent (Node (size, name) []) = 
+  "(" ++ show size ++ ", " ++ name ++ ")\n"
+printAscii' indent (Node (size, name) children) = 
+  "(" ++ show size ++ ", " ++ name ++ ")\n" ++
+  (concat $ map (\child -> (replicate indent ' ') ++ "|\n" ++ (replicate indent ' ') ++ "|- " ++ printAscii' (indent+3) child) children)
 
 
-    data FileStructure = Root [FileStructure] | File String Int | Directory FileStructure Char [FileStructure]
-    -- File takes name and integer
-    -- Directory take parent, name, contents
-    root = Root [Directory (Root []) 'b' []]
+subAddedNode :: Tree (Int, String) -> Tree (Int, String) -> Tree (Int, String)
+subAddedNode (Node rootId children) (Node name newChildren) =
+    let newNode = Node name newChildren
+    in if rootId == name && children == tail newChildren then newNode
+        else Node rootId $ map (\c -> subAddedNode c newNode) children
 
-    getName :: FileStructure -> String
-    getName f = case f of
-        File c _ -> c
-        Directory _ c _ -> [c]
-        Root _ -> "/"
-        
-    getSize :: FileStructure -> Int
-    getSize f = case f of
-        File _ n -> n
-        Directory _ _ _ -> -1
-        Root _ -> -1
+updateParent :: ([Int], Tree (Int, String)) -> Tree (Int, String) -> ([Int], Tree (Int, String))
+updateParent ([], newNode) tree = ([], newNode)
+updateParent (p:[], newNode) tree = 
+    let newTree = Node (rootLabel tree) (map (\c -> 
+            if rootLabel c == rootLabel newNode then 
+                newNode else c) (subForest tree))
+    in ([], newTree)
+updateParent ((p:path), newNode) tree =
+    let newPath = take (length (p:path) - 1) (p:path)
+        parent = getChild tree newPath
+        newParent = Node (rootLabel parent) (map (\c -> 
+            if rootLabel c == rootLabel newNode then 
+                newNode else c) (subForest parent))
+    in updateParent (newPath, newParent) tree
 
-    getFolderContents :: FileStructure -> [FileStructure]
-    getFolderContents f = case f of
-        File _ _ -> []
-        Directory _ _ c -> c
-        Root c -> c
+addNode :: Tree (Int, String) -> [Int] -> (Int, String) -> Tree (Int, String)
+addNode tree path id =
+    let newNode = Node id []
+        parent = getChild tree path
+        newParent = Node (rootLabel parent) (newNode : (subForest parent))
+    in snd $ updateParent (path, newParent) tree
 
-    getParent :: FileStructure -> FileStructure
-    getParent f = case f of
-        File _ _ -> error "Cannot get parent of file"
-        Directory p _ _ -> p
-        Root _ -> f
+getChild :: Tree (Int, String) -> [Int] -> Tree (Int, String)
+getChild tree [] = tree
+getChild tree (p:path) = 
+    let next = (subForest tree)!!p
+    in getChild next path
 
-    getInnerFolder :: FileStructure -> String -> FileStructure
-    getInnerFolder f str = case f of
-        File _ _ -> f
-        Root dirs ->
-            if length str == 1 then
-                head $ filter (\x -> (getName x) == str) dirs
-            else f
-        Directory _ _ dirs -> 
-           -- the name will always be a single char, unless the name is "..", in which case it should return the parent folder
-            if length str == 1 then
-                head $ filter (\x -> (getName x) == str) dirs
-            else getParent f
+findChildNum :: Tree (Int, String) -> String -> Int
+findChildNum tree name =
+    let zipped = zip [0..] (subForest tree)
+        child = filter (\c -> snd (rootLabel (snd c)) == name) zipped
+    in fst $ head child
 
-    isRoot :: FileStructure -> Bool
-    isRoot (Root _) = True
-    isRoot _ = False
+sumAllChildren :: Tree (Int, String) -> Tree (Int, String)
+sumAllChildren tree =
+    let summed = sumChildren tree
+    in if summed == tree then summed else sumAllChildren summed
 
+sumChildren :: Tree (Int, String) -> Tree (Int, String)
+sumChildren (Node (value, name) children) =
+    let childSum = if length children == 0 then value else sum (map (\c -> fst (rootLabel c)) children)
+    in Node (childSum, name) (map sumChildren children)
 
+hasChildren1 :: Tree (Int, String) -> [(Int, String)]
+hasChildren1 (Node val []) = []
+hasChildren1 (Node (val, name) children) = filter (\(v, n) -> v <= 100000) $ (val, name) : (concatMap hasChildren1 children)
 
-    setFolderContents :: FileStructure -> [FileStructure] -> FileStructure
-    setFolderContents dir contents =
-        if dir == root then
-            Root contents
-        else
-            Directory (Root contents) 'd' contents
-
-    updateParent file fileContents =
-        let parent = getParent file
-            parentName = head $ getName parent
-            newParent = Directory parent parentName fileContents
-        in newParent
-
-    addFile :: FileStructure -> FileStructure -> FileStructure
-    addFile dir newFile = setFolderContents dir (getFolderContents dir ++ [newFile])
-
-    instance Show FileStructure where
-        show (File c i) = "(" ++ c ++ ", " ++ (show i) ++ ")"
-        show (Directory p c f) = "{" ++ [c] ++ ", " ++ (show f) ++ "} " ++ show p
-        show (Root f) = show f
-
-    instance Eq FileStructure where
-        Root _ == Root _ =
-            True
-        File name1 size1 == File name2 size2 = 
-            name1 == name2 && size1 == size2
-        Directory parent1 name1 contents1 == Directory parent2 name2 contents2 =
-             parent1 == parent2 && name1 == name2 && contents1 == contents2
-        _ == _ = False
+hasChildren2 :: Tree (Int, String) -> [(Int, String)]
+hasChildren2 (Node val []) = []
+hasChildren2 (Node (val, name) children) = (val, name) : (concatMap hasChildren2 children)
 
 
-    someFunc :: IO ()
-    someFunc = do
-        -- let root = Directory root '/' []
-        print root
-        let root = Root []
-        let root2 = addFile root (Directory root 'a' [])
-        print root2
-        let dirA = getInnerFolder root2 "a"
-        -- let dirA2 = addFile dirA (File "x.txt" 12)
-        -- print $ dirA2
-        print $ getParent dirA
+userInput :: (Tree (Int, String), [Int]) -> String -> (Tree (Int, String), [Int])
+userInput (tree, path) cmd =
+    if take 4 cmd == "$ cd" then
+        let currDir = getChild tree path
+            newCurrDirName = drop 5 cmd
+        in if newCurrDirName == ".." then (tree, take (length path - 1) path) else 
+            (tree, path ++ [findChildNum currDir newCurrDirName])
+    else if take 3 cmd == "dir" then
+        let newFileSystem = addNode tree path (0, drop 4 cmd)
+        in (newFileSystem, path)
+    else if all isDigit (head $ words cmd) then
+        let size = read ((words cmd)!!0) :: Int
+            name = (words cmd)!!1
+            newFileSystem = addNode tree path (size, name)
+        in (newFileSystem, path)
+    else (tree, path)
+
+userInputs :: (Tree (Int, String), [Int]) -> [String] -> Int -> (Tree (Int, String), [Int])
+userInputs (fileSystem, path) cmds n =
+    if n == (length cmds) - 1 then
+        userInput (fileSystem, path) (cmds!!n)
+    else
+        userInputs (userInput (fileSystem, path) (cmds!!n)) cmds (n+1)
 
 
-    -- updateDir :: String -> FileStructure -> FileStructure
-    -- updateDir cmd currDir =
-    --     if take 3 cmd == "dir" then
-    --         addFile currDir (Directory currDir (cmd!!4) [])
-    --     else if take 4 cmd == "$ cd" then
-    --         getInnerFolder currDir $ drop 5 cmd
-    --     else currDir
+someFunc :: IO ()
+someFunc = do
+    contents <- lines <$> readFile "input7.txt"
+    let useContents = tail contents
+
+    let fileSystem = Node (0, "/") []
+    let path = []
+
+    let (newFileSystem, newPath) = userInputs (fileSystem, path) useContents 0
+    let addedFileSystem = sumAllChildren newFileSystem
+    putStrLn $ printAscii addedFileSystem
+
+    -- let dirs = hasChildren1 addedFileSystem
+    -- let total = sum $ map fst dirs
+
+    -- part 2
+    let total = sum $ map fst (flatten newFileSystem)
+    let unused = 70000000 - total
+    let needToDelete = 30000000 - unused 
+    
+    let filteredSortedDirs = filter (\d -> fst d >= needToDelete) (sortOn fst $ hasChildren2 addedFileSystem)
+
+    print $ head filteredSortedDirs
